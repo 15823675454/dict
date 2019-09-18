@@ -1,5 +1,6 @@
 from socket import *
 from threading import *
+import hashlib
 from multiprocessing import process
 import pymysql
 import os,sys
@@ -19,7 +20,12 @@ class DictServer(Thread):
                                   charset='utf8')
         self.cur = self.db.cursor()
 
-
+    def hash(self, passwd):
+        sorlt = '*@mjcy&'
+        hash = hashlib.md5(sorlt.encode())
+        hash.update(passwd)
+        passwd = hash.hexdigest()
+        return passwd
     def register(self, name):
         sql = 'select * from user where name=%s'
         self.cur.execute(sql, [name])
@@ -28,10 +34,16 @@ class DictServer(Thread):
             self.c.send('该用户已存在！'.encode())
         else:
             self.c.send('OK'.encode())
-            passwd = self.c.recv(1024).decode()
-            sql = 'insert into user values(%s,%s)'
-            self.cur.execute(sql, [name, passwd])
-            self.db.commit()
+            passwd = self.c.recv(1024)
+            passwd = self.hash(passwd)
+            print(passwd)
+            try:
+                sql = 'insert into user values(%s,%s)'
+                self.cur.execute(sql, [name, passwd])
+                self.db.commit()
+            except Exception as e:
+                print(e)
+                self.db.rollback()
             self.c.send('OK'.encode())
 
     def login(self, name):
@@ -40,9 +52,11 @@ class DictServer(Thread):
         data = self.cur.fetchone()
         if data:
             self.c.send(b'OK')
-            data = self.c.recv(1024).decode()
+            data = self.c.recv(1024)
+            passwd = self.hash(data)
+            print(passwd)
             sql = 'select * from user where name=%s and passwd=%s'
-            self.cur.execute(sql, [name, data])
+            self.cur.execute(sql, [name, passwd])
             data = self.cur.fetchone()
             if data:
                 self.c.send(b'OK')
@@ -70,9 +84,14 @@ class DictServer(Thread):
                 break
             sql = 'select * from words where word=%s'
             self.cur.execute(sql, [data])
-            mean = self.cur.fetchall()[0]
-            print(mean)
-            self.c.send(mean[2].encode())
+            mean = self.cur.fetchall()
+            if len(mean) == 0:
+                self.c.send('该单词不存在'.encode())
+            else:
+                print(mean)
+                data = mean[0]
+                print(data)
+                self.c.send(data[2].encode())
 
 
 

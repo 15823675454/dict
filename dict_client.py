@@ -18,13 +18,20 @@ def register(s):
         if data == 'OK':
             print('该用户名可用')
             passwd = getpass('请输入密码：')
-            s.send(passwd.encode())
-            data = s.recv(1024).decode()
-            if data == 'OK':
-                print('注册成功，请登录')
-                break
+            if not passwd:
+                print('密码不能为空！')
+                continue
+            again = getpass('请确认密码：')
+            if passwd == again:
+                s.send(passwd.encode())
+                data = s.recv(1024).decode()
+                if data == 'OK':
+                    print('注册成功，请登录')
+                    break
+                else:
+                    print('注册失败,请重新注册')
+                    continue
             else:
-                print('注册失败,请重新注册')
                 continue
         else:
             print(data)
